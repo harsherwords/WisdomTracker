@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.1
+
+- Move left-side Judgement icons farther left when an enemy gains a raid marker, such as a skull. Return the icons to their usual position when the marker is cleared.
+
 ## 1.4
 
 - Anchor judgement icons beside the health bar instead of above the nameplate.

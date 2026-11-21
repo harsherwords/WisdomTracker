@@ -4,7 +4,7 @@
 ## Category: Unit Frames
 ## IconTexture: Interface\Icons\Spell_Holy_SealOfWisdom
 ## Author: You
-## Version: 1.4
+## Version: 1.4.1
 ## SavedVariablesPerCharacter: WisdomTrackerDB
 
 WisdomTracker.lua

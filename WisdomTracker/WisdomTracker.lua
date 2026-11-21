@@ -9,6 +9,7 @@ local DEBUFFS = {
 }
 local SIZE = 22
 local GAP = 3
+local RAID_MARKER_SPACE = 28
 -- Non-self casts. This does not restrict the caster to party members.
 local FILTER = "HARMFUL|!PLAYER|!CROWD_CONTROL"
 local byPlate, byUnit = {}, {}
@@ -58,20 +59,37 @@ local function InitializeButton(button)
     button:SetIcon(icon)
 end
 
-local function Position(entry)
+local function Position(entry, unit)
     local frame = entry.plate.UnitFrame
     -- Anchor directly to the visible health bar, not the larger plate bounds.
     -- Early NAME_PLATE_CREATED events can arrive before the health bar exists.
     local anchor = frame and (frame.healthBar or frame.HealthBarsContainer or frame) or entry.plate
     local side = Settings().position
-    if entry.anchor == anchor and entry.side == side then return end
+    local offset = GAP
+    if side == "left" then
+        offset = -GAP
+        if unit then
+            local readable, index = pcall(GetRaidTargetIndex, unit)
+            -- Leave room if the client restricts access to the marker index.
+            if not readable or IsSecret(index) or index ~= nil then
+                offset = offset - RAID_MARKER_SPACE
+            end
+        end
+    end
+    if entry.anchor == anchor and entry.side == side and entry.offset == offset then return end
     entry.container:ClearAllPoints()
     if side == "left" then
-        entry.container:SetPoint("RIGHT", anchor, "LEFT", -GAP, 0)
+        entry.container:SetPoint("RIGHT", anchor, "LEFT", offset, 0)
     else
-        entry.container:SetPoint("LEFT", anchor, "RIGHT", GAP, 0)
+        entry.container:SetPoint("LEFT", anchor, "RIGHT", offset, 0)
     end
-    entry.anchor, entry.side = anchor, side
+    entry.anchor, entry.side, entry.offset = anchor, side, offset
+end
+
+local function TryPosition(entry, unit)
+    local ok, err = pcall(Position, entry, unit)
+    if not ok then ReportError("Could not position judgement display: " .. tostring(err)) end
+    return ok
 end
 
 local function Prepare(plate)
@@ -102,11 +120,7 @@ local function Prepare(plate)
         return nil
     end
     local entry = { container = container, plate = plate }
-    local positioned, positionError = pcall(Position, entry)
-    if not positioned then
-        ReportError("Could not position judgement display: " .. tostring(positionError))
-        return nil
-    end
+    if not TryPosition(entry) then return nil end
     byPlate[plate] = entry
     return entry
 end
@@ -145,11 +159,7 @@ local function Attach(unit)
     local entry = Prepare(plate)
     if not entry then return end
     if entry.settingsFailed then return end
-    local positioned, positionError = pcall(Position, entry)
-    if not positioned then
-        ReportError("Could not position judgement display: " .. tostring(positionError))
-        return
-    end
+    if not TryPosition(entry, unit) then return end
     if entry.unit and entry.unit ~= unit then Detach(entry.unit) end
     local bound, err = pcall(entry.container.SetUnit, entry.container, unit)
     if not bound then
@@ -175,7 +185,7 @@ end
 local events = CreateFrame("Frame")
 for _, event in ipairs({ "NAME_PLATE_CREATED", "NAME_PLATE_UNIT_ADDED",
     "NAME_PLATE_UNIT_REMOVED", "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED",
-    "UNIT_FACTION" }) do
+    "UNIT_FACTION", "RAID_TARGET_UPDATE" }) do
     events:RegisterEvent(event)
 end
 events:SetScript("OnEvent", function(_, event, unit)
@@ -185,6 +195,8 @@ events:SetScript("OnEvent", function(_, event, unit)
         if IsUnit(unit) then Detach(unit) end
     elseif event == "NAME_PLATE_UNIT_ADDED" or event == "UNIT_FACTION" then
         Attach(unit)
+    elseif event == "RAID_TARGET_UPDATE" then
+        for nameplateUnit, entry in pairs(byUnit) do TryPosition(entry, nameplateUnit) end
     else
         Refresh()
     end
@@ -201,7 +213,7 @@ SlashCmdList.WISDOMTRACKER = function(message)
         end
         Settings().position = value
         for _, entry in pairs(byPlate) do
-            local ok, err = pcall(Position, entry)
+            local ok, err = pcall(Position, entry, entry.unit)
             if not ok then
                 ReportError("Position update failed; /reload to apply saved position: " .. tostring(err))
             end
@@ -237,7 +249,7 @@ SlashCmdList.WISDOMTRACKER = function(message)
     end
     local count = 0
     for _ in pairs(byUnit) do count = count + 1 end
-    print("|cffffcc00WisdomTracker 1.4:|r " .. count .. " nameplates bound.")
+    print("|cffffcc00WisdomTracker 1.4.1:|r " .. count .. " nameplates bound.")
     print("Position: " .. Settings().position .. " - /wt position left|right")
     for _, debuff in ipairs(DEBUFFS) do
         print(debuff.name .. ": " .. (Settings()[debuff.key] and "on" or "off"))
