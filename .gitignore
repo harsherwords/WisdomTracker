@@ -1,0 +1,23 @@
+# Packaged releases
+*.zip
+
+# Editor and operating-system files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+
+# Game account data and logs
+WTF/
+SavedVariables/
+Logs/
+*.log

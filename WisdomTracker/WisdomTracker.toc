@@ -1,0 +1,8 @@
+## Interface: 16001, 120100
+## Title: Wisdom Tracker
+## Notes: Tracks other players' Wisdom and Crusader judgements on nameplates
+## Author: You
+## Version: 1.4
+## SavedVariablesPerCharacter: WisdomTrackerDB
+
+WisdomTracker.lua
